@@ -1,0 +1,2 @@
+# Contributing
+The video editor
