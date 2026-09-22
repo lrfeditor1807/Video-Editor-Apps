@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Audio Editor Example</title>
+</head>
+<body>
+<h2>Audio Editor Example</h2>
+
+<input type="file" id="audioFile" accept="audio/*"><br><br>
+<button id="playBtn">Play</button>
+<button id="pauseBtn">Pause</button>
+<button id="stopBtn">Stop</button><br><br>
+
+<label>Mute: <input type="checkbox" id="mute"></label>
+<label>Solo: <input type="checkbox" id="solo"></label><br><br>
+
+<!-- Simple Effects -->
+<label>Volume (0-100): <input type="range" id="volume" min="0" max="100" value="100"></label><br>
+<label>Invert: <input type="checkbox" id="invert"></label><br>
+<label>Pitch (semitones -24 to 24): <input type="range" id="pitch" min="-24" max="24" value="0"></label><br>
+
+<!-- Generate pluck/chirp buttons -->
+<button id="generatePluck">Generate Pluck</button>
+<button id="generateChirp">Generate Chirp</button><br><br>
+
+<button id="renderDownload">Render & Download</button>
+
+<script>
+let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let source, buffer, gainNode, pitchNode;
+
+document.getElementById('audioFile').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const arrayBuffer = await file.arrayBuffer();
+    buffer = await audioCtx.decodeAudioData(arrayBuffer);
+    setupAudio();
+});
+
+function setupAudio() {
+    if (source) source.disconnect();
+    
+    source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+
+    // Gain Node for Volume
+    gainNode = audioCtx.createGain();
+    gainNode.gain.value = document.getElementById('volume').value / 100;
+
+    source.connect(gainNode).connect(audioCtx.destination);
+}
+
+document.getElementById('playBtn').addEventListener('click', () => {
+    setupAudio();
+    if (document.getElementById('invert').checked) invertAudio(source.buffer);
+    applyPitch();
+    source.start();
+});
+
+document.getElementById('pauseBtn').addEventListener('click', () => {
+    audioCtx.suspend();
+});
+
+document.getElementById('stopBtn').addEventListener('click', () => {
+    audioCtx.close();
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+});
+
+document.getElementById('volume').addEventListener('input', (e) => {
+    if (gainNode) gainNode.gain.value = e.target.value / 100;
+});
+
+function invertAudio(audioBuffer) {
+    for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
+        let channel = audioBuffer.getChannelData(i);
+        for (let j = 0; j < channel.length; j++) {
+            channel[j] *= -1;
+        }
+    }
+}
+
+function applyPitch() {
+    const semitones = parseInt(document.getElementById('pitch').value);
+    if (source) {
+        source.playbackRate.value = Math.pow(2, semitones / 12);
+    }
+}
+
+// Simple Pluck Generator (sine wave short burst)
+document.getElementById('generatePluck').addEventListener('click', () => {
+    let osc = audioCtx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = 440; // A4
+    let g = audioCtx.createGain();
+    g.gain.setValueAtTime(1, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1);
+    osc.connect(g).connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 1);
+});
+
+// Chirp generator
+document.getElementById('generateChirp').addEventListener('click', () => {
+    let osc = audioCtx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+    osc.frequency.linearRampToValueAtTime(880, audioCtx.currentTime + 2);
+    osc.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 2);
+});
+
+// Render & download
+document.getElementById('renderDownload').addEventListener('click', () => {
+    if (!buffer) return;
+
+    const offlineCtx = new OfflineAudioContext(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+    const offlineSource = offlineCtx.createBufferSource();
+    offlineSource.buffer = buffer;
+
+    const offlineGain = offlineCtx.createGain();
+    offlineGain.gain.value = document.getElementById('volume').value / 100;
+
+    offlineSource.connect(offlineGain).connect(offlineCtx.destination);
+
+    offlineSource.start();
+    offlineCtx.startRendering().then(renderedBuffer => {
+        const wav = audioBufferToWav(renderedBuffer);
+        const blob = new Blob([wav], { type: 'audio/wav' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'edited_audio.wav';
+        a.click();
+    });
+});
+
+// Convert audio buffer to WAV (simplified)
+function audioBufferToWav(buffer) {
+    const numOfChan = buffer.numberOfChannels,
+        length = buffer.length * numOfChan * 2 + 44,
+        bufferArray = new ArrayBuffer(length),
+        view = new DataView(bufferArray),
+        channels = [],
+        sampleRate = buffer.sampleRate;
+
+    let offset = 0;
+
+    function writeString(str) {
+        for (let i = 0; i < str.length; i++) view.setUint8(offset++, str.charCodeAt(i));
+    }
+
+    writeString('RIFF');
+    view.setUint32(offset, length - 8, true); offset += 4;
+    writeString('WAVE');
+    writeString('fmt '); view.setUint32(offset, 16, true); offset += 4;
+    view.setUint16(offset, 1, true); offset += 2;
+    view.setUint16(offset, numOfChan, true); offset += 2;
+    view.setUint32(offset, sampleRate, true); offset += 4;
+    view.setUint32(offset, sampleRate * numOfChan * 2, true); offset += 4;
+    view.setUint16(offset, numOfChan * 2, true); offset += 2;
+    view.setUint16(offset, 16, true); offset += 2;
+    writeString('data'); view.setUint32(offset, length - offset - 4, true); offset += 4;
+
+    for (let i = 0; i < numOfChan; i++) channels.push(buffer.getChannelData(i));
+
+    for (let i = 0; i < buffer.length; i++) {
+        for (let j = 0; j < numOfChan; j++) {
+            let sample = Math.max(-1, Math.min(1, channels[j][i]));
+            view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+            offset += 2;
+        }
+    }
+
+    return view;
+}
+</script>
+</body>
+</html>

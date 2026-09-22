@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StreamFX HTML Example</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
+  canvas { border: 1px solid #000; display: block; margin-top: 10px; }
+  input, button { margin: 5px 0; }
+</style>
+</head>
+<body>
+
+<h2>StreamFX HTML Example</h2>
+
+<!-- Upload Video/Image -->
+<label>Upload Video:</label>
+<input type="file" id="videoInput" accept="video/*"><br>
+<label>Upload Image:</label>
+<input type="file" id="imageInput" accept="image/*"><br>
+
+<!-- Upload Shader/Effect Files -->
+<label>Upload Shader (.glsl/.frag):</label>
+<input type="file" id="shaderInput" accept=".glsl,.frag"><br>
+<label>Upload LUT (.cube/.png):</label>
+<input type="file" id="lutInput" accept=".cube,.png"><br>
+
+<!-- Render & Download -->
+<button id="renderBtn">Render & Download</button>
+
+<!-- Canvas for rendering -->
+<canvas id="canvas" width="640" height="360"></canvas>
+
+<script>
+const canvas = document.getElementById('canvas');
+const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+
+let video = null;
+let image = null;
+let shaderSource = null;
+let lutImage = null;
+
+// Load video
+document.getElementById('videoInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  video = document.createElement('video');
+  video.src = URL.createObjectURL(file);
+  video.autoplay = true;
+  video.loop = true;
+  video.muted = true;
+  video.play();
+});
+
+// Load image
+document.getElementById('imageInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  image = new Image();
+  image.src = URL.createObjectURL(file);
+});
+
+// Load shader file
+document.getElementById('shaderInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  shaderSource = await file.text();
+});
+
+// Load LUT file (only PNG for simplicity)
+document.getElementById('lutInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  lutImage = new Image();
+  lutImage.src = URL.createObjectURL(file);
+});
+
+// Render & download function
+document.getElementById('renderBtn').addEventListener('click', () => {
+  if (!video && !image) { alert("Upload video or image first!"); return; }
+  const renderCanvas = document.createElement('canvas');
+  renderCanvas.width = canvas.width;
+  renderCanvas.height = canvas.height;
+  const ctx = renderCanvas.getContext('2d');
+
+  function drawFrame() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (video) ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    if (image) ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    // Apply LUT if loaded
+    if (lutImage) {
+      ctx.globalAlpha = 0.5;
+      ctx.drawImage(lutImage, 0, 0, canvas.width, canvas.height);
+      ctx.globalAlpha = 1.0;
+    }
+    // Apply custom shader (placeholder, real WebGL needed for true shaders)
+    if (shaderSource) {
+      ctx.fillStyle = "rgba(255,0,0,0.1)";
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+    }
+    ctx.canvas.toBlob((blob) => {
+      const link = document.createElement('a');
+      link.download = 'render.png';
+      link.href = URL.createObjectURL(blob);
+      link.click();
+    });
+  }
+
+  drawFrame();
+});
+</script>
+
+</body>
+</html>

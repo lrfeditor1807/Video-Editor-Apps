@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Advanced Photo Editor</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; }
+  canvas { border: 1px solid #000; margin-top: 10px; }
+  #toolbar { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+  input[type="color"], input[type="file"], input[type="number"], input[type="range"] { margin: 0 5px; }
+</style>
+</head>
+<body>
+
+<h1>HTML5 Photo Editor</h1>
+
+<div id="toolbar">
+  <button onclick="newImage()">New</button>
+  <input type="file" id="openFile" onchange="openImage(event)">
+  <button onclick="closeImage()">Close</button>
+  <button onclick="downloadImage('png')">Download PNG</button>
+  <button onclick="downloadImage('jpeg')">Download JPEG</button>
+  <button onclick="undo()">Undo</button>
+  <button onclick="redo()">Redo</button>
+  <select id="blendMode" onchange="applyBlend(this.value)">
+    <option value="source-over">Normal</option>
+    <option value="multiply">Multiply</option>
+    <option value="screen">Screen</option>
+    <option value="difference">Difference</option>
+    <option value="exclusion">Exclusion</option>
+  </select>
+  <input type="range" id="hue" min="0" max="360" value="0" onchange="applyHue(this.value)">
+  <input type="range" id="saturation" min="-100" max="100" value="0" onchange="applySaturation(this.value)">
+  <button onclick="applyInvert()">Invert</button>
+  <button onclick="flipX()">Flip X</button>
+  <button onclick="flipY()">Flip Y</button>
+  <button onclick="applyKaleidoscope()">Kaleidoscope</button>
+  <button onclick="applyMirror()">Mirror</button>
+  <button onclick="applyWave()">Wave</button>
+  <button onclick="applySwirl()">Swirl</button>
+  <button onclick="applyPinch()">Pinch/Punch</button>
+  <input type="file" id="shaderFile" onchange="loadShader(event)">
+</div>
+
+<canvas id="canvas" width="800" height="600"></canvas>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let img = new Image();
+let history = [], historyIndex = -1;
+
+// Basic file functions
+function newImage() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  saveHistory();
+}
+function openImage(event) {
+  const file = event.target.files[0];
+  const reader = new FileReader();
+  reader.onload = e => {
+    img.src = e.target.result;
+    img.onload = () => { 
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      saveHistory();
+    };
+  };
+  reader.readAsDataURL(file);
+}
+function closeImage() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  img.src = '';
+  saveHistory();
+}
+function downloadImage(type) {
+  const link = document.createElement('a');
+  link.download = `edited.${type}`;
+  link.href = canvas.toDataURL(`image/${type}`);
+  link.click();
+}
+
+// Undo/Redo
+function saveHistory() {
+  history = history.slice(0, historyIndex + 1);
+  history.push(ctx.getImageData(0,0,canvas.width,canvas.height));
+  historyIndex++;
+}
+function undo() {
+  if(historyIndex > 0) {
+    historyIndex--;
+    ctx.putImageData(history[historyIndex], 0, 0);
+  }
+}
+function redo() {
+  if(historyIndex < history.length-1) {
+    historyIndex++;
+    ctx.putImageData(history[historyIndex], 0, 0);
+  }
+}
+
+// Basic editing
+function applyBlend(mode) {
+  ctx.globalCompositeOperation = mode;
+}
+function applyHue(value) { /* Placeholder: implement hue rotation */ saveHistory(); }
+function applySaturation(value) { /* Placeholder: implement saturation */ saveHistory(); }
+function applyInvert() { /* Placeholder: invert colors */ saveHistory(); }
+function flipX() { ctx.scale(-1,1); ctx.drawImage(canvas, -canvas.width,0); ctx.setTransform(1,0,0,1,0,0); saveHistory(); }
+function flipY() { ctx.scale(1,-1); ctx.drawImage(canvas,0,-canvas.height); ctx.setTransform(1,0,0,1,0,0); saveHistory(); }
+function applyKaleidoscope() { /* Placeholder */ saveHistory(); }
+function applyMirror() { /* Placeholder */ saveHistory(); }
+function applyWave() { /* Placeholder */ saveHistory(); }
+function applySwirl() { /* Placeholder */ saveHistory(); }
+function applyPinch() { /* Placeholder */ saveHistory(); }
+
+// Shader loader
+function loadShader(event) {
+  const file = event.target.files[0];
+  const reader = new FileReader();
+  reader.onload = e => {
+    const shaderCode = e.target.result;
+    console.log('Shader loaded:', shaderCode);
+    // parse and apply shader
+  };
+  reader.readAsText(file);
+}
+</script>
+</body>
+</html>

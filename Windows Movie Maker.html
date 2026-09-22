@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Movie Maker Example</title>
+<style>
+  body { font-family: Arial, sans-serif; background: #f0f0f0; padding: 20px; }
+  canvas { border: 1px solid #000; display: block; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+
+<h2>Movie Maker HTML Example</h2>
+
+<!-- File Inputs -->
+<input type="file" id="videoFile" accept="video/*">
+<input type="file" id="audioFile" accept="audio/*">
+<input type="file" id="imageFile" accept="image/*">
+<br><br>
+
+<!-- Text Overlay -->
+<input type="text" id="textOverlay" placeholder="Enter text here">
+<select id="fontSelect">
+  <option value="Arial">Arial</option>
+  <option value="Comic Sans MS">Comic Sans MS</option>
+  <option value="Archivo Black">Archivo Black</option>
+  <option value="Bell MT">Bell MT</option>
+  <option value="Roboto Mono">Roboto Mono</option>
+  <option value="Verdana">Verdana</option>
+</select>
+<input type="color" id="textColor" value="#000000">
+<label><input type="checkbox" id="bold"> Bold</label>
+<label><input type="checkbox" id="italic"> Italic</label>
+<label><input type="checkbox" id="underline"> Underline</label>
+<br><br>
+
+<!-- Clip Timing & Speed -->
+<label>Start (s): <input type="number" id="startTime" value="0"></label>
+<label>End (s): <input type="number" id="endTime" value="10"></label>
+<label>Speed: <input type="number" id="speed" step="0.1" value="1" min="0.1" max="10"></label>
+<br><br>
+
+<!-- Effects -->
+<label><input type="checkbox" id="invert"> Invert</label>
+<label><input type="checkbox" id="grayscale"> Grayscale</label>
+<label><input type="checkbox" id="sepia"> Sepia</label>
+<label>Hue shift: <input type="number" id="hueShift" value="0" min="0" max="360"></label>
+<label>Spin (°): <input type="number" id="spin" value="0" min="-360" max="360"></label>
+<label>Pixelate: <input type="number" id="pixelate" value="0" min="0" max="10"></label>
+<label>Mirror:
+<select id="mirrorEffect">
+  <option value="none">None</option>
+  <option value="left">Left</option>
+  <option value="right">Right</option>
+  <option value="top">Top</option>
+  <option value="bottom">Bottom</option>
+</select></label>
+<br><br>
+
+<button id="renderBtn">Render Video/Image</button>
+<canvas id="canvas" width="640" height="360"></canvas>
+<a id="downloadLink" download="output.mp4">Download Rendered Video</a>
+
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.5/dist/ffmpeg.min.js"></script>
+<script>
+const { createFFmpeg, fetchFile } = FFmpeg;
+const ffmpeg = createFFmpeg({ log: true });
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+document.getElementById('renderBtn').addEventListener('click', async () => {
+  const videoFile = document.getElementById('videoFile').files[0];
+  const audioFile = document.getElementById('audioFile').files[0];
+  const imageFile = document.getElementById('imageFile').files[0];
+  const text = document.getElementById('textOverlay').value;
+  const font = document.getElementById('fontSelect').value;
+  const color = document.getElementById('textColor').value;
+  const bold = document.getElementById('bold').checked ? 'bold' : 'normal';
+  const italic = document.getElementById('italic').checked ? 'italic' : 'normal';
+  const underline = document.getElementById('underline').checked;
+  const startTime = parseFloat(document.getElementById('startTime').value);
+  const endTime = parseFloat(document.getElementById('endTime').value);
+  const speed = parseFloat(document.getElementById('speed').value);
+  const invert = document.getElementById('invert').checked;
+  const grayscale = document.getElementById('grayscale').checked;
+  const sepia = document.getElementById('sepia').checked;
+  const hueShift = parseFloat(document.getElementById('hueShift').value);
+  const spin = parseFloat(document.getElementById('spin').value);
+  const pixelate = parseFloat(document.getElementById('pixelate').value);
+  const mirror = document.getElementById('mirrorEffect').value;
+
+  // For simplicity: show image + overlay on canvas (real video rendering requires ffmpeg processing)
+  const img = new Image();
+  if (imageFile) img.src = URL.createObjectURL(imageFile);
+  img.onload = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.font = `${italic} ${bold} 48px ${font}`;
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+    if (underline) {
+      const textWidth = ctx.measureText(text).width;
+      ctx.beginPath();
+      ctx.moveTo(canvas.width/2 - textWidth/2, canvas.height/2 + 10);
+      ctx.lineTo(canvas.width/2 + textWidth/2, canvas.height/2 + 10);
+      ctx.strokeStyle = color;
+      ctx.stroke();
+    }
+    // Effects (simplified)
+    if (invert) {
+      const imageData = ctx.getImageData(0,0,canvas.width,canvas.height);
+      for(let i=0;i<imageData.data.length;i+=4){
+        imageData.data[i]=255-imageData.data[i];
+        imageData.data[i+1]=255-imageData.data[i+1];
+        imageData.data[i+2]=255-imageData.data[i+2];
+      }
+      ctx.putImageData(imageData,0,0);
+    }
+    if(grayscale || sepia){ /* can add filters similarly */ }
+  };
+
+  // TODO: full video rendering using ffmpeg.wasm with audio/video merging, speed, start/end trimming, effects
+});
+</script>
+
+</body>
+</html>
